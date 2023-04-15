@@ -4,6 +4,17 @@ from const import *
 import random
 import datetime
 
+def load_image(name, colorkey=None):
+    fullname = os.path.join('sprites', name)
+    image = pygame.image.load(fullname)
+    if colorkey is not None:
+        image = image.convert()
+        if colorkey == -1:
+            colorkey = image.get_at((0, 0))
+        image.set_colorkey(colorkey)
+    else:
+        image = image.convert_alpha()
+    return image
 
 class Button:
     def __init__(self, text, pos, func, b_width=240, b_height=60):
@@ -37,23 +48,12 @@ class Button:
     def is_clicked(self):
         return self.h_color == (150, 150, 150)
 
-def load_image(name, colorkey=None):
-    fullname = os.path.join('sprites', name)
-    image = pygame.image.load(fullname)
-    if colorkey is not None:
-        image = image.convert()
-        if colorkey == -1:
-            colorkey = image.get_at((0, 0))
-        image.set_colorkey(colorkey)
-    else:
-        image = image.convert_alpha()
-    return image
-
-
 class Bee(pygame.sprite.Sprite):
     def __init__(self,pos, image):
         pygame.sprite.Sprite.__init__(self)
-        self.start_img = pygame.transform.scale(load_image(image), (50, 50))
+        self.images = [pygame.transform.scale(load_image(f"bee\\bee{i}.png"), (50, 50)) for i in range(1,10)]
+        self.frame = 0
+        self.start_img = self.images[0]
         self.image = pygame.Surface((50, 50), pygame.SRCALPHA)
         self.image.convert_alpha()
         self.image.blit(self.start_img, (0, 0, 50, 50))
@@ -79,26 +79,33 @@ class Bee(pygame.sprite.Sprite):
                 self.image.blit(self.start_img, (0, 0, 50, 50))
 
     def y_motion(self, k_up):
-        if self.rect.y <= HEIGHT:
+        if self.rect.y <= HEIGHT-50:
             if not k_up:
                 self.rect.y += self.y_speed + int(2/25*self.nectar)
-        if self.rect.y >= 0:
+        if self.rect.y >= 00:
             if k_up:
                 self.rect.y -= self.y_speed - int(4/25*self.nectar)
-
+    def change_frames(self):
+        if self.frame < 40:
+            self.frame +=1
+        else:
+            self.frame = 0
+        self.start_img = self.images[self.frame//5]
+        self.image.fill((0,0,0,0))
+        self.image.blit(self.start_img, (0, 0, 50, 50))
 
 class Base(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.Surface((75, 75), pygame.SRCALPHA)
+        self.image = pygame.Surface((150, 150), pygame.SRCALPHA)
         self.image.convert_alpha()
         self.image.fill((0, 0, 0, 0))
-        self.image.blit(pygame.transform.scale(load_image("bee_base.jpg"), (75, 75)), (0, 0, 75, 75))
+        self.image.blit(pygame.transform.scale(load_image("bee_base.png"), (150, 150)), (0, 0, 150, 150))
         self.rect = self.image.get_rect()
-        self.rect.x = screen_size[0] - 85
-        self.rect.y = 85
-        self.nectar = 0
-        self.health = 10
+        self.rect.x = screen_size[0] - 140
+        self.rect.y = 50
+        self.nectar = 100
+        self.health = 100
 
     def update(self, bee):
         if self.nectar > 0:
@@ -107,23 +114,36 @@ class Base(pygame.sprite.Sprite):
         else:
             self.health = max(0, self.health - 5/FPS)
 
+    def draw_bars(self, screen):
+        pygame.draw.rect(screen, (255,0,0), (WIDTH-100, self.rect.y+160, self.health, 5))
+        pygame.draw.rect(screen, (255, 255, 0),(WIDTH-100, self.rect.y + 180, self.nectar, 5))
+
 class Leg(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.Surface((100, 720), pygame.SRCALPHA)
+        self.image = pygame.Surface((200, 720), pygame.SRCALPHA)
         self.image.convert_alpha()
         self.image.fill((0, 0, 0, 0))
-        self.image.blit(pygame.transform.scale(load_image("leg.png"), (100, 720)), (0, 0, 100, 720))
+        self.image.blit(pygame.transform.scale(load_image("leg.png"), (200, 720)), (0, 0, 200, 720))
         self.rect = self.image.get_rect()
-        self.rect.x = random.randint(0, WIDTH-200)
-        self.rect.y = -650
+        self.rect.x = random.randint(0, WIDTH-400)
+        self.rect.y = -720
+        self.active = False
+        self.is_punch = False
 
     def y_motiont(self):
-        if self.rect.y <= 0:
-            self.rect.y += 12
+        if self.active:
+            if self.rect.y <= 0:
+                self.rect.y += 10
+            else:
+                self.active = False
         else:
-            self.rect.x = random.randint(0, WIDTH - 200)
-            self.rect.y = -650
+            if self.rect.y > -720:
+                self.rect.y -=15
+            else:
+                self.rect.x = random.randint(0, WIDTH - 400)
+                self.rect.y = -720
+                self.is_punch = False
 
 
 class Flower(pygame.sprite.Sprite):
@@ -134,7 +154,7 @@ class Flower(pygame.sprite.Sprite):
         self.image = pygame.Surface((60, 100), pygame.SRCALPHA)
         self.image.convert_alpha()
         self.image.fill((0, 0, 0, 0))
-        self.image.blit(pygame.transform.scale(load_image("f1.png"), (60, 100)), (0, 0, 60, 100))
+        self.image.blit(pygame.transform.scale(load_image(random.choice(['f2.png','f3.png','f4.png'])), (60, 100)), (0, 0, 60, 100))
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
         self.rect.y = pos[1]
@@ -160,7 +180,7 @@ def Game(screen):
     base = Base()
     base_sprite = pygame.sprite.Group()
     base_sprite.add(base)
-    bee = Bee((WIDTH // 2, HEIGHT // 2), "bee.png")
+    bee = Bee((WIDTH // 2, HEIGHT // 2), "bee\\bee.png")
     player = pygame.sprite.Group()
     player.add(bee)
     font = pygame.font.Font("fonts/Font.ttf", 24)
@@ -168,22 +188,35 @@ def Game(screen):
     change_windy = pygame.event.Event(pygame.USEREVENT + 10)
     pygame.event.post(change_windy)
     pygame.time.set_timer(change_windy, 15 * 1000)
-    start_nectar = 0
-    score = 0
+
+    add_leg = pygame.event.Event(pygame.USEREVENT + 11)
+    pygame.event.post(add_leg)
+    pygame.time.set_timer(add_leg, 5 * 1000)
 
     windy = 0
+
+    start_nectar = 0
+    score = 0
 
     leg = pygame.sprite.Group()
     legg = Leg()
     leg.add(legg)
     flower_sprites = pygame.sprite.Group()
     flower_array = []
+    for i in range(7):
+        tmp = Flower((50 + i * 200, 480))
+        flower_array.append(tmp)
+        flower_sprites.add(tmp)
+
     for i in range(5):
-        tmp = Flower((50 + i * 200, 620))
+        tmp = Flower((125 + i * 200, 620))
         flower_array.append(tmp)
         flower_sprites.add(tmp)
 
     while running:
+
+        bee.change_frames()
+
         clock.tick(FPS)
         keys = pygame.key.get_pressed()
 
@@ -195,6 +228,9 @@ def Game(screen):
                     windy += 1
                 else:
                     windy = 0
+            if event.type == pygame.USEREVENT + 11:
+                legg.active = True
+                print(1)
 
         if keys[pygame.K_d] and not bee.is_flower and not bee.is_nest:
             bee.x_motion(k_right=True, windy=windy)
@@ -218,6 +254,16 @@ def Game(screen):
                 c.nectar = max(0, c.nectar - 4 / FPS)
 
         nest_collide = pygame.sprite.spritecollide(bee, base_sprite, False)
+        legg.y_motiont()
+
+        legg_collide = pygame.sprite.spritecollide(bee, leg, False)
+        if legg_collide:
+            if not legg_collide[0].is_punch:
+                bee.nectar = 0
+                legg_collide[0].active = False
+                punch_sound.play()
+                legg_collide[0].is_punch = True
+
 
         if nest_collide:
             if not bee.is_nest and not keys[pygame.K_w] and bee.nectar > 0:
@@ -228,6 +274,7 @@ def Game(screen):
             else:
                 score += 5 * max(start_nectar - bee.nectar, 0)
                 bee.is_nest = False
+
             if nest_collide[0].nectar != 100:
                 if min(nest_collide[0].nectar + 5/FPS, 100) == 100:
                     bee.nectar = max(bee.nectar - 100 - nest_collide[0].nectar, 0)
@@ -268,14 +315,13 @@ def Game(screen):
 
         health = font.render(f"Health: {round(base.health)}", True, (255, 0, 0))
         health_rect = health.get_rect()
-        health_rect.x, health_rect.y = 10, 10
+        health_rect.x, health_rect.y = 0, 0
         screen.blit(health, health_rect)
 
         nectar = font.render(f"Nectar: {round(base.nectar)}", True, (255, 255, 0))
         nectar_rect = nectar.get_rect()
-        nectar_rect.x, nectar_rect.y = 10, 50
+        nectar_rect.x, nectar_rect.y = 0, 50
         screen.blit(nectar, nectar_rect)
-
         score_text = font.render(f"Score: {int(score)}", True, (255, 255, 255))
         score_rect = score_text.get_rect()
         score_rect.topright = (1170, 10)
@@ -295,10 +341,10 @@ def Game(screen):
         flower_sprites.update()
         player.update()
         base.update(bee)
+        base.draw_bars(screen)
         flower_sprites.draw(screen)
         base_sprite.draw(screen)
         player.draw(screen)
         leg.update()
         leg.draw(screen)
         pygame.display.flip()
-
