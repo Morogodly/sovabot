@@ -4,6 +4,39 @@ from const import *
 import random
 import datetime
 
+
+class Button:
+    def __init__(self, text, pos, func, b_width=240, b_height=60):
+        self.text = text
+        self.pos = pos
+        self.func = func
+        self.b_width, self.b_height = b_width, b_height
+        self.h_color = pygame.Color("White")
+        self.button_surface = None
+
+    def render(self):
+        self.button_surface = pygame.Surface((self.b_width, self.b_height), pygame.SRCALPHA)
+        self.button_surface.convert_alpha()
+        self.button_surface.fill(pygame.Color(0, 0, 0, 0))
+        pygame.draw.rect(self.button_surface, pygame.Color("Black"), (1, 1, self.b_width - 2, self.b_height - 2),
+                         border_radius=10)
+        pygame.draw.rect(self.button_surface, self.h_color, (2, 2, self.b_width - 4, self.b_height - 4),
+                         border_radius=10)
+        font = pygame.font.Font("fonts/Font.ttf", 16)
+        text = font.render(self.text, True, (0, 0, 0))
+        text_rect = text.get_rect(center=(120, 30))
+        self.button_surface.blit(text, text_rect)
+
+    def is_hovered(self, mouse_pos):
+        if (self.pos[0] <= mouse_pos[0] <= self.pos[0] + self.b_width and
+                self.pos[1] <= mouse_pos[1] <= self.pos[1] + self.b_height):
+            self.h_color = (150, 150, 150)
+        else:
+            self.h_color = pygame.Color("White")
+
+    def is_clicked(self):
+        return self.h_color == (150, 150, 150)
+
 def load_image(name, colorkey=None):
     fullname = os.path.join('sprites', name)
     image = pygame.image.load(fullname)
@@ -64,8 +97,8 @@ class Base(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = screen_size[0] - 85
         self.rect.y = 85
-        self.nectar = 100
-        self.health = 100
+        self.nectar = 0
+        self.health = 10
 
     def update(self, bee):
         if self.nectar > 0:
@@ -135,10 +168,8 @@ def Game(screen):
     change_windy = pygame.event.Event(pygame.USEREVENT + 10)
     pygame.event.post(change_windy)
     pygame.time.set_timer(change_windy, 15 * 1000)
-
-    add_leg = pygame.event.Event(pygame.USEREVENT + 11)
-    pygame.event.post(add_leg)
-    pygame.time.set_timer(add_leg, 5 * 1000)
+    start_nectar = 0
+    score = 0
 
     windy = 0
 
@@ -164,8 +195,6 @@ def Game(screen):
                     windy += 1
                 else:
                     windy = 0
-            if event.type == pygame.USEREVENT + 11:
-                pass
 
         if keys[pygame.K_d] and not bee.is_flower and not bee.is_nest:
             bee.x_motion(k_right=True, windy=windy)
@@ -193,11 +222,12 @@ def Game(screen):
         if nest_collide:
             if not bee.is_nest and not keys[pygame.K_w] and bee.nectar > 0:
                 bee.is_nest = True
+                start_nectar = bee.nectar
                 bee.rect.x = base.rect.x
                 bee.rect.y = base.rect.y
             else:
+                score += 5 * max(start_nectar - bee.nectar, 0)
                 bee.is_nest = False
-
             if nest_collide[0].nectar != 100:
                 if min(nest_collide[0].nectar + 5/FPS, 100) == 100:
                     bee.nectar = max(bee.nectar - 100 - nest_collide[0].nectar, 0)
@@ -206,17 +236,50 @@ def Game(screen):
                     bee.nectar = max(bee.nectar - 5/FPS, 0)
                     nest_collide[0].nectar += 5/FPS
 
+        if base.health <= 0:
+            transparent_background = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            transparent_background.convert_alpha()
+            transparent_background.fill((0, 0, 0, 100))
+            pygame.mouse.set_visible(True)
+            screen.blit(transparent_background, (0, 0))
+            button = Button("MAIN MENU", (1180 // 2 - 240 // 2, 400), lambda: 0)
+            font = pygame.font.Font("fonts/Font.ttf", 28)
+            text = font.render("GAME OVER", True, (255, 255, 255))
+            text_rect = text.get_rect(center=(1180 // 2, 200))
+            screen.blit(text, text_rect)
+            while True:
+                clock.tick(FPS)
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.mouse.set_visible(False)
+                        running = False
+                if pygame.mouse.get_pressed(3)[0]:
+                    button.is_hovered(pygame.mouse.get_pos())
+                    if button.is_clicked():
+                        pygame.mouse.set_visible(False)
+                        break
+                button.is_hovered(pygame.mouse.get_pos())
+                button.render()
+                screen.blit(button.button_surface, button.pos + (240, 60))
+                pygame.display.flip()
+            break
+
         screen.fill((100, 100, 100))
 
         health = font.render(f"Health: {round(base.health)}", True, (255, 0, 0))
         health_rect = health.get_rect()
-        health_rect.x, health_rect.y = 0, 0
+        health_rect.x, health_rect.y = 10, 10
         screen.blit(health, health_rect)
 
         nectar = font.render(f"Nectar: {round(base.nectar)}", True, (255, 255, 0))
         nectar_rect = nectar.get_rect()
-        nectar_rect.x, nectar_rect.y = 0, 50
+        nectar_rect.x, nectar_rect.y = 10, 50
         screen.blit(nectar, nectar_rect)
+
+        score_text = font.render(f"Score: {int(score)}", True, (255, 255, 255))
+        score_rect = score_text.get_rect()
+        score_rect.topright = (1170, 10)
+        screen.blit(score_text, score_rect)
 
         bee_nectar = global_font_15.render(f"{round(bee.nectar)}", True,  (int(255 * (bee.nectar/25)), int(255 * (1-bee.nectar/25)), 0))
         bee_nectar_rect = bee_nectar.get_rect(center=(bee.rect.x + 25, bee.rect.y - 10))
@@ -238,3 +301,4 @@ def Game(screen):
         leg.update()
         leg.draw(screen)
         pygame.display.flip()
+
