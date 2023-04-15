@@ -1,7 +1,20 @@
 import pygame
-
-import const
+import os
 from const import *
+
+
+def load_image(name, colorkey=None):
+    fullname = os.path.join('', name)
+    image = pygame.image.load(fullname)
+    if colorkey is not None:
+        image = image.convert()
+        if colorkey == -1:
+            colorkey = image.get_at((0, 0))
+        image.set_colorkey(colorkey)
+    else:
+        image = image.convert_alpha()
+    return image
+
 
 class Bee(pygame.sprite.Sprite):
     def __init__(self,pos, image):
@@ -32,19 +45,25 @@ class Bee(pygame.sprite.Sprite):
                 self.rect.y -= self.y_speed
 
 
-
-
-
-
+class Base(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.Surface((75, 75), pygame.SRCALPHA)
+        self.image.convert_alpha()
+        self.image.fill((0, 0, 0, 0))
+        self.image.blit(pygame.transform.scale(load_image("sprites\\bee_base.jpg"), (75, 75)), (0, 0, 75, 75))
+        self.rect = self.image.get_rect()
+        self.rect.x = screen_size[0] - 85
+        self.rect.y = screen_size[1] - 85
 
 
 def Game(screen):
     running = True
-
-    bee = Bee((WIDTH//2, HEIGHT//2),"menu_buttons\ok.png")
+    base_sprite = pygame.sprite.Group()
+    base_sprite.add(Base())
+    bee = Bee((WIDTH // 2, HEIGHT // 2), "menu_buttons\ok.png")
     player = pygame.sprite.Group()
     player.add(bee)
-
 
     while running:
         clock.tick(FPS)
@@ -65,8 +84,8 @@ def Game(screen):
             bee.y_motion(False)
 
 
-
         screen.fill(BLACK)
         player.update()
         player.draw(screen)
+        base_sprite.draw(screen)
         pygame.display.flip()
